@@ -18,6 +18,12 @@ const userSchema = new mongoose.Schema({
         type:String,
         default:"student",
         enum: ['student', 'instructor', 'admin']
+    },
+    resetPasswordToken:{
+        type:String
+    },
+    resetPasswordExpires:{
+        type:Date
     }
 })
 const users = mongoose.model('users',userSchema)
