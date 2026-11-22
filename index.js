@@ -10,7 +10,7 @@ const server=express()
 
 // enabling cors in server
 server.use(cors())
-const router = require('./Routes/route')
+const router = require('./routes/route')
 
 // enabling json middleware
 server.use(express.json())
