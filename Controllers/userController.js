@@ -9,7 +9,7 @@ const transporter = require('../config/emailconfig')
 // register
 const userRegister = async (req,res)=>{
     try{
-        const{ name, email, password, role}= req.body
+        const{ name, email, password}= req.body
         // checking whether all feilds are provided
         if(!name || !email ||!password ){
             return res.status(400).json("All Feilds are required")
@@ -19,15 +19,11 @@ const userRegister = async (req,res)=>{
         if(existingUser){
             return res.status(409).json("User Already Exists")
         }
-        // Validating user role
-        if(role && !['student','instructor'].includes(role)){
-            return res.status(400).json("Invalid role")
-        }
         // encrypting password
         const hashedPassword = await bcrypt.hash(password,10)
         // craeting new user
         const newUser = new users({
-            name , email , password:hashedPassword , role:role || 'student'
+            name , email , password:hashedPassword , role:'student'
         })
         // saving user to db
         await newUser.save()

@@ -19,12 +19,18 @@ const userSchema = new mongoose.Schema({
         default:"student",
         enum: ['student', 'instructor', 'admin']
     },
+    instructorStatus: {
+        type: String,
+        enum: ['not_applied', 'pending', 'approved', 'rejected'],
+        default: 'not_applied'
+    },
     resetPasswordToken:{
         type:String
     },
     resetPasswordExpires:{
         type:Date
-    }
+    },
+    
 })
 const users = mongoose.model('users',userSchema)
 module.exports=users
