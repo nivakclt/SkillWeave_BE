@@ -1,5 +1,5 @@
 const InstructorApplication = require('../Models/instructorApplicationModel')
-const instructorApplication = require('../Models/instructorApplicationModel')
+const InstructorAssessment = require('../Models/instructorAssessmentModel')
 const users = require('../Models/userModel')
 
 // submit instructor application
@@ -58,8 +58,160 @@ const getMyInstructorApplication=async(req,res)=>{
         if(!application){
             return res.status(404).json('No instructor application Found')
         }
-        res.status(200).json({})
-    } catch (error) {
-        
+        res.status(200).json({message:'Application Fetched Successfully',application})
+    } catch (err) {
+        console.log('Fetch Application Error:',err)
+        res.status(500).json('Internal Server Error')
     }
+}
+module.exports = {submitInstructorApplication,getMyInstructorApplication}
+
+// Get all instructor applications(Admin)
+const getAllInstructorApplications = async(req,res)=>{
+    try {
+        const applications = await InstructorApplication.find()
+        .populate(`applicant`,`name email`).sort({createdAt:-1})
+        res.status(200).json({message:'Applications fetched successfully',applications})
+    } catch (error) {
+        console.log('Fetch All Applications Error:',error)
+        res.status(500).json('Internal Server Error')
+    }
+} 
+// Approve or reject instructor application (Admin)
+const reviewInstructorApplication = async (req, res) => {
+    try {
+        const { applicationId } = req.params
+        const { status, adminFeedback, teachingDemoApproved } = req.body
+
+        if (!['approved', 'rejected'].includes(status)) {
+            return res.status(400).json('Invalid application status')
+        }
+
+        if (
+            adminFeedback !== undefined &&
+            typeof adminFeedback !== 'string'
+        ) {
+            return res.status(400).json('Invalid feedback')
+        }
+
+        if (status === 'rejected' && !adminFeedback?.trim()) {
+            return res.status(400).json('Please provide rejection feedback')
+        }
+
+        const application = await InstructorApplication.findById(applicationId)
+
+        if (!application) {
+            return res.status(404).json('Application not found')
+        }
+
+        if (application.status !== 'pending') {
+            return res.status(409).json('Application has already been reviewed')
+        }
+
+        const applicant = await users.findById(application.applicant)
+
+        if (!applicant) {
+            return res.status(404).json('Application account not found')
+        }
+
+        if (status === 'approved') {
+            const assessment = await InstructorAssessment.findOne({
+                application: application._id,
+                status: 'submitted'
+            })
+
+            if (!assessment || assessment.score == null || assessment.score < 80) {
+                return res.status(400).json('Assessment score must be at least 80')
+            }
+
+            if (!application.teachingDemoUrl) {
+                return res.status(400).json('Teaching demonstration is required')
+            }
+
+            if (teachingDemoApproved !== true) {
+                return res.status(400).json('Admin must approve the teaching demonstration')
+            }
+
+            application.teachingDemoApproved = true
+            application.teachingDemoReviewedAt = new Date()
+            applicant.role = 'instructor'
+        }
+
+        applicant.instructorStatus = status
+
+        application.status = status
+        application.adminFeedback = adminFeedback?.trim() || ''
+        application.reviewedBy = req.user.userId
+        application.reviewedAt = new Date()
+
+        await applicant.save()
+        await application.save()
+
+        return res.status(200).json({
+            message: `Instructor application ${status} successfully`,
+            application
+        })
+
+    } catch (error) {
+        console.log('Review Application Error:', error)
+
+        if (error.name === 'CastError') {
+            return res.status(400).json('Invalid application ID')
+        }
+
+        return res.status(500).json('Internal Server Error')
+    }
+}
+
+const submitTeachingDemo = async (req, res) => {
+    try {
+        const { teachingDemoUrl } = req.body
+
+        if (
+            typeof teachingDemoUrl !== 'string' ||
+            !teachingDemoUrl.trim()
+        ) {
+            return res.status(400).json('Teaching demo URL is required')
+        }
+
+        let url
+
+        try {
+            url = new URL(teachingDemoUrl.trim())
+        } catch {
+            return res.status(400).json('Invalid URL')
+        }
+
+        if (url.protocol !== 'https:') {
+            return res.status(400).json('Use a valid HTTPS URL')
+        }
+
+        const application = await InstructorApplication.findOneAndUpdate(
+            {
+                applicant: req.user.userId,
+                status: 'pending'
+            },
+            {
+                teachingDemoUrl: url.toString(),
+                teachingDemoSubmittedAt: new Date()
+            },
+            { new: true }
+        )
+
+        if (!application) {
+            return res.status(404).json('Pending application not found')
+        }
+
+        return res.status(200).json({
+            message: 'Teaching demo submitted successfully',
+            teachingDemoUrl: application.teachingDemoUrl
+        })
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json('Internal Server Error')
+    }
+}
+module.exports = {submitInstructorApplication,getMyInstructorApplication,
+    getAllInstructorApplications,reviewInstructorApplication,submitTeachingDemo
 }
