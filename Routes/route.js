@@ -21,7 +21,7 @@ router.post('/contact',sendContactMessage)
 
 // Instructor application routes
 router.post('/instructor/apply',authMiddleware,submitInstructorApplication)
-router.get('/instructor/my-application',authMiddleware,getMyInstructorApplication)
+router.get('/instructor/my-application',authMiddleware,roleMiddleware('student'),getMyInstructorApplication)
 
 // role based access
 router.get('/student-dashboard', authMiddleware, roleMiddleware('student'), (req, res) => {
@@ -33,7 +33,7 @@ router.get('/admin-dashboard', authMiddleware, roleMiddleware('admin'), (req, re
 // Admin :view all instructor application
 router.get('/admin/instructor-applications',authMiddleware,roleMiddleware('admin'),getAllInstructorApplications)
 // Admin:approve or reject an application
-router.patch('/admin/instructor-application/:applicationId',authMiddleware,roleMiddleware('admin'),reviewInstructorApplication)
+router.patch('/admin/instructor-applications/:applicationId',authMiddleware,roleMiddleware('admin'),reviewInstructorApplication)
 
 router.post('/admin/create-assessment',authMiddleware,roleMiddleware('admin'),createAssessment)
 router.get('/instructor/my-assessment',authMiddleware,getMyAssessment)
